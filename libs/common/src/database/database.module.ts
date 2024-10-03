@@ -7,8 +7,6 @@ import { EntityClassOrSchema } from '@nestjs/typeorm/dist/interfaces/entity-clas
     imports: [
         TypeOrmModule.forRootAsync({
             useFactory: (configService: ConfigService) => {
-
-                console.log(configService.get('DATABASE_HOST'));
                 return ({
                     type: 'postgres',
                     host: configService.getOrThrow('DATABASE_HOST'),

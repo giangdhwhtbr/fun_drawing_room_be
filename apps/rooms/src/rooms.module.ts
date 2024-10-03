@@ -1,17 +1,12 @@
-import { DatabaseModule, HealthModule, LoggerModule, NOTIFICATIONS_SERVICE } from '@app/common';
-import { User } from '@app/common/entities';
+import { DatabaseModule, HealthModule, LoggerModule, NOTIFICATIONS_SERVICE, AUTH_SERVICE } from '@app/common';
+import { Room } from '@app/common/entities/room.entity';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import * as Joi from 'joi';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { JwtStrategy } from './strategies/jwt.strategy';
-import { LocalStrategy } from './strategies/local.strategy';
-import { UsersController } from './users/users.controller';
-import { UsersRepository } from './users/users.repository';
-import { UsersService } from './users/users.service';
+import { RoomsController } from './rooms.controller';
+import { RoomsService } from './rooms.service';
+import { RoomsRepository } from './rooms.repository';
 
 @Module({
   imports: [
@@ -19,7 +14,7 @@ import { UsersService } from './users/users.service';
     HealthModule,
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: process.env.RUNNING_IN_DOCKER ? undefined : './apps/auth/.env',
+      envFilePath: process.env.RUNNING_IN_DOCKER ? undefined : './apps/rooms/.env',
       validationSchema: Joi.object({
         DATABASE_USERNAME: Joi.string().required(),
         DATABASE_PASSWORD: Joi.string().required(),
@@ -27,8 +22,6 @@ import { UsersService } from './users/users.service';
         DATABASE_NAME: Joi.string().required(),
         DATABASE_SYNCHRONIZE: Joi.string().required(),
         DATABASE_PORT: Joi.number().required(),
-        JWT_SECRET: Joi.string().required(),
-        JWT_EXPIRATION: Joi.string().required(),
         HTTP_PORT: Joi.number().required(),
         TCP_PORT: Joi.number().required(),
         FRONTEND_URL: Joi.string().required(),
@@ -37,8 +30,19 @@ import { UsersService } from './users/users.service';
       }),
     }),
     DatabaseModule,
-    DatabaseModule.forFeature([User]),
+    DatabaseModule.forFeature([Room]),
     ClientsModule.registerAsync([
+      {
+        name: AUTH_SERVICE,
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.TCP,
+          options: {
+            host: configService.get('AUTH_HOST'),
+            port: configService.get('AUTH_PORT'),
+          },
+        }),
+        inject: [ConfigService],
+      },
       {
         name: NOTIFICATIONS_SERVICE,
         useFactory: (configService: ConfigService) => ({
@@ -51,17 +55,8 @@ import { UsersService } from './users/users.service';
         inject: [ConfigService],
       },
     ]),
-    JwtModule.registerAsync({
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: `${configService.get('JWT_EXPIRATION')}s`,
-        },
-      }),
-      inject: [ConfigService],
-    }),
   ],
-  controllers: [AuthController, UsersController],
-  providers: [UsersService, UsersRepository, AuthService, LocalStrategy, JwtStrategy],
+  controllers: [RoomsController],
+  providers: [RoomsService, RoomsRepository],
 })
-export class AuthModule {}
+export class RoomsModule {}
