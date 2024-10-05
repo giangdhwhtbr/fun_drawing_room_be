@@ -10,7 +10,6 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { UsersController } from './users/users.controller';
-import { UsersRepository } from './users/users.repository';
 import { UsersService } from './users/users.service';
 
 @Module({
@@ -34,6 +33,8 @@ import { UsersService } from './users/users.service';
         FRONTEND_URL: Joi.string().required(),
         NOTIFICATIONS_HOST: Joi.string().required(),
         NOTIFICATIONS_PORT: Joi.number().required(),
+        DEFAULT_ADMIN_EMAIL: Joi.string().required(),
+        DEFAULT_ADMIN_PASSWORD: Joi.string().required(),
       }),
     }),
     DatabaseModule,
@@ -62,6 +63,6 @@ import { UsersService } from './users/users.service';
     }),
   ],
   controllers: [AuthController, UsersController],
-  providers: [UsersService, UsersRepository, AuthService, LocalStrategy, JwtStrategy],
+  providers: [UsersService, AuthService, LocalStrategy, JwtStrategy],
 })
 export class AuthModule {}

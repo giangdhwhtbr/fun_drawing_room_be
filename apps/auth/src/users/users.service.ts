@@ -7,21 +7,23 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { ClientProxy } from '@nestjs/microservices';
-import { CreateUserDto, GetUserDto, ResetPasswordDto, UpdateUserDto } from './dto';
-import { UsersRepository } from './users.repository';
-import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, Repository } from 'typeorm';
+import { CreateUserDto, ResetPasswordDto } from './dto';
+import { FindUsersDto } from './dto/find-users.dto';
 
 @Injectable()
 export class UsersService {
   protected readonly logger = new Logger(UsersService.name);
-  
+
   constructor(
     private dataSource: DataSource,
     private readonly configService: ConfigService,
-    private readonly usersRepository: UsersRepository,
+    @InjectRepository(User)
+    private readonly repository: Repository<User>,
     private readonly jwtService: JwtService,
     @Inject(NOTIFICATIONS_SERVICE)
     private readonly notificationsService: ClientProxy,
@@ -31,13 +33,12 @@ export class UsersService {
 
   private async validateCreateUserDto(createUserDto: CreateUserDto) {
     try {
-      await this.usersRepository.findOne({ email: createUserDto.email });
+      await this.repository.findOne({ where: { email: createUserDto.email } });
     } catch (err) {
       return;
     }
     throw new UnprocessableEntityException('Email already exists.');
   }
-
 
   async create(createUserDto: CreateUserDto) {
     await this.validateCreateUserDto(createUserDto);
@@ -45,7 +46,7 @@ export class UsersService {
     const user = new User(payload);
     user.activationToken = this.jwtService.sign({ email: user.email });
     user.setPassword(createUserDto.password);
-    await this.usersRepository.create(user);
+    await this.repository.save(user);
     this.notificationsService.emit('send_email', {
       to: user.email,
       subject: 'Activate Account',
@@ -56,21 +57,17 @@ export class UsersService {
 
   async activate(activationToken: string) {
     const email = this.jwtService.verify(activationToken).email;
-    const user = await this.usersRepository.findOne({ email });
+    const user = await this.repository.findOne({ where: { email } });
     user.isActivated = true;
-    await this.usersRepository.findOneAndUpdate({ id: user.id }, {
-      isActivated: true,
-      activationToken: null,
-    });
+    user.activationToken = null;
+    await this.repository.save(user);
     return true;
   }
 
   async requestPasswordReset(email: string) {
-    const user = await this.usersRepository.findOne({ email });
+    const user = await this.repository.findOne({ where: { email } });
     user.passwordResetToken = this.jwtService.sign({ email: user.email });
-    await this.usersRepository.findOneAndUpdate({ id: user.id }, {
-      passwordResetToken: user.passwordResetToken,
-    });
+    await this.repository.save(user);
     this.notificationsService.emit('send_email', {
       to: user.email,
       subject: 'Password Reset',
@@ -81,11 +78,10 @@ export class UsersService {
 
   async resetPassword({ token, password }: ResetPasswordDto) {
     const email = this.jwtService.verify(token).email;
-    const user = await this.usersRepository.findOne({ email });
+    const user = await this.repository.findOne({ where: { email } });
     user.setPassword(password);
     user.passwordResetToken = null;
-    await this.usersRepository._save(user);
-
+    await this.repository.save(user);
     this.notificationsService.emit('send_email', {
       to: user.email,
       subject: 'Password Reset Successful',
@@ -96,46 +92,36 @@ export class UsersService {
   }
 
   async verifyUser(email: string, password: string) {
-    const user = await this.usersRepository.findOne({ email });
+    const user = await this.repository.findOne({ where: { email } });
     if (!user.authenticate(password)) {
       throw new UnauthorizedException('Credentials are not valid.');
     }
     return user;
   }
 
-  async getUser(getUserDto: GetUserDto) {
-    return this.usersRepository.findOne(getUserDto);
-  }
-
   async createAdminUser() {
     const repo = this.dataSource.getRepository(User);
-    const admin = await repo.findOne({ where: { email: 'admin' } });
+    const admin = await repo.findOne({ where: { email: this.configService.get('DEFAULT_ADMIN_EMAIL') } });
     if (!admin) {
       const user = new User({
-        email: 'admin',
+        email: this.configService.get('DEFAULT_ADMIN_EMAIL'),
         name: 'Admin',
         role: UserRole.ADMIN,
         isActivated: true,
       });
-      user.setPassword('admin');
+      user.setPassword(this.configService.get('DEFAULT_ADMIN_PASSWORD'));
       await repo.save(user);
     }
-    this.logger.log('Admin user created');
+    this.logger.log(`Admin user "${this.configService.get('DEFAULT_ADMIN_EMAIL')}" created`);
   }
 
-  findAll() {
-    return `This action returns all users`;
+  async findById(id: number) {
+    return this.repository.findOneBy({ id });
   }
 
-  findOne(id: number) {
-    return this.usersRepository.findOne({ id });
-  }
-
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return this.usersRepository.findOneAndUpdate({ id }, updateUserDto);
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async findAll(payload: FindUsersDto) {
+    return this.repository.find(
+      payload.ids ? { where: { id: In(payload.ids) } } : {},
+    );
   }
 }

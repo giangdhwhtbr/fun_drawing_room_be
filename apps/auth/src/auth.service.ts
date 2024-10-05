@@ -29,6 +29,8 @@ export class AuthService {
       expires,
     });
 
-    return token;
+    return {
+      accessToken: token,
+    };
   }
 }

@@ -6,7 +6,6 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import * as Joi from 'joi';
 import { RoomsController } from './rooms.controller';
 import { RoomsService } from './rooms.service';
-import { RoomsRepository } from './rooms.repository';
 
 @Module({
   imports: [
@@ -57,6 +56,6 @@ import { RoomsRepository } from './rooms.repository';
     ]),
   ],
   controllers: [RoomsController],
-  providers: [RoomsService, RoomsRepository],
+  providers: [RoomsService],
 })
 export class RoomsModule {}

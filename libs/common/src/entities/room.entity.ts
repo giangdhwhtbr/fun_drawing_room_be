@@ -3,7 +3,7 @@ import { Column, Entity } from 'typeorm';
 
 @Entity()
 export class Room extends AbstractEntity<Room> {
-    @Column({ length: 50 })
+    @Column({ length: 50, unique: true })
     name: string;
 
     @Column('text', { nullable: true })
