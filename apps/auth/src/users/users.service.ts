@@ -31,17 +31,11 @@ export class UsersService {
 
   }
 
-  private async validateCreateUserDto(createUserDto: CreateUserDto) {
-    try {
-      await this.repository.findOne({ where: { email: createUserDto.email } });
-    } catch (err) {
-      return;
-    }
-    throw new UnprocessableEntityException('Email already exists.');
-  }
-
   async create(createUserDto: CreateUserDto) {
-    await this.validateCreateUserDto(createUserDto);
+    const existed = await this.repository.findOne({ where: { email: createUserDto.email } });
+    if (existed) {
+      throw new UnprocessableEntityException('User already exists');
+    }
     const { password, ...payload } = createUserDto;
     const user = new User(payload);
     user.activationToken = this.jwtService.sign({ email: user.email });
@@ -50,7 +44,7 @@ export class UsersService {
     this.notificationsService.emit('send_email', {
       to: user.email,
       subject: 'Activate Account',
-      body: `<a href="${this.configService.get('FRONTEND_URL')}/activate/${user.activationToken}">Click here to activate your account</a>`,
+      body: `<a href="${this.configService.get('FRONTEND_URL')}/auth/activate?token=${user.activationToken}">Click here to activate your account</a>`,
     });
     return user.toJson()
   }
@@ -71,7 +65,7 @@ export class UsersService {
     this.notificationsService.emit('send_email', {
       to: user.email,
       subject: 'Password Reset',
-      body: `<a href="${this.configService.get('FRONTEND_URL')}/reset-password/${user.passwordResetToken}}">Click here to reset your password</a>`,
+      body: `<a href="${this.configService.get('FRONTEND_URL')}/auth/reset-password?token=${user.passwordResetToken}}">Click here to reset your password</a>`,
     });
     return true;
   }
@@ -93,9 +87,15 @@ export class UsersService {
 
   async verifyUser(email: string, password: string) {
     const user = await this.repository.findOne({ where: { email } });
+
     if (!user.authenticate(password)) {
       throw new UnauthorizedException('Credentials are not valid.');
     }
+
+    if (!user.isActivated) {
+      throw new UnauthorizedException('Account is not activated.');
+    }
+
     return user;
   }
 

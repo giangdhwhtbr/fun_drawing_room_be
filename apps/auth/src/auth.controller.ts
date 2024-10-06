@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { Response } from 'express';
 import { CurrentUser } from '@app/common';
@@ -30,6 +30,12 @@ export class AuthController {
   async register(@Body() createUserDto: CreateUserDto) {
     await this.usersService.create(createUserDto);
     return { success: true, message: 'Registration successfully!' };
+  }
+
+  @Get('activate/:token')
+  async activate(@Param('token') token: string) {
+    await this.usersService.activate(token);
+    return { success: true, message: 'Account activated successfully!' };
   }
 
   @Post('forgot-password')
