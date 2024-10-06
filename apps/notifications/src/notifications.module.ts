@@ -6,6 +6,7 @@ import { LoggerModule } from '@app/common';
 import * as Joi from 'joi';
 import { BullModule } from '@nestjs/bullmq';
 import { MailConsumer } from './mail.consumer';
+import { ChatGateway } from './chat.gateway';
 
 @Module({
   imports: [
@@ -41,6 +42,6 @@ import { MailConsumer } from './mail.consumer';
     LoggerModule,
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService, MailConsumer],
+  providers: [NotificationsService, MailConsumer, ChatGateway],
 })
 export class NotificationsModule { }
