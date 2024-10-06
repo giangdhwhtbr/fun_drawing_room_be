@@ -6,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Repository } from 'typeorm';
 import * as uuid from 'uuid';
 import { CreateRoomDto } from './dto/create-room.dto';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class RoomsService {
@@ -48,6 +49,9 @@ export class RoomsService {
         name: ILike(`%${keywords}%`),
       } : {},
       take: 20,
+      order: {
+        id: 'DESC',
+      }
     });
   }
 
@@ -56,6 +60,9 @@ export class RoomsService {
       where: keywords ? { name: ILike(`%${keywords}%`) } : {},
       take: limit,
       skip: offset,
+      order: {
+        id: 'DESC',
+      }
     });
   }
 
@@ -63,13 +70,34 @@ export class RoomsService {
     return this.repository.findOneBy({ id });
   }
 
-  async getRoomParticipants(id: number) {
-    const room = await this.repository.findOneBy({ id });
-    return this.authClient
-      .send('findAllUsers', {
+  getRoomByUUID(uuid: string) {
+    return this.repository.findOneBy({ uuid });
+  }
+
+  async getRoomParticipants(jwt: string, uuid: string) {
+    const room = await this.repository.findOneBy({ uuid });
+  
+    if (!room || !room.userIds || room.userIds.length === 0) {
+      throw new Error('Room not found or no participants');
+    }
+  
+    // Log the payload being sent to debug the issue
+    console.log('Sending payload:', {
+      Authorization: jwt,
+      ids: room.userIds,
+    });
+  
+    // Send the payload wrapped in an object
+    const result = await firstValueFrom(
+      this.authClient.send('all_users', {
+        Authorization: jwt,
         ids: room.userIds,
       })
-      .pipe();
+    );
+
+    console.log('Result:', result); 
+
+    return result
   }
 
   async joinRoom(user: User, id: number) {
@@ -85,6 +113,7 @@ export class RoomsService {
     }
     room.userIds.push(user.id);
     await this.repository.save(room);
+    return room;
   }
 
   async leaveRoom(user: User, id: number) {
@@ -97,6 +126,7 @@ export class RoomsService {
     }
     room.userIds = room.userIds.filter((userId) => userId !== user.id);
     await this.repository.save(room);
+    return room;
   }
 
 }

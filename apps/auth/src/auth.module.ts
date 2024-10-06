@@ -11,11 +11,13 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { UsersController } from './users/users.controller';
 import { UsersService } from './users/users.service';
+// import { CacheModule } from '@app/common/cache/cache.module';
 
 @Module({
   imports: [
     LoggerModule,
     HealthModule,
+    // CacheModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: process.env.RUNNING_IN_DOCKER ? undefined : './apps/auth/.env',
@@ -35,6 +37,8 @@ import { UsersService } from './users/users.service';
         NOTIFICATIONS_PORT: Joi.number().required(),
         DEFAULT_ADMIN_EMAIL: Joi.string().required(),
         DEFAULT_ADMIN_PASSWORD: Joi.string().required(),
+        REDIS_HOST: Joi.string().required(),
+        REDIS_PORT: Joi.number().required(),
       }),
     }),
     DatabaseModule,

@@ -1,17 +1,17 @@
 import { UserRole } from '@app/common';
 import { Roles } from '@app/common/decorators';
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Param, Post, UseGuards } from '@nestjs/common';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UsersService } from './users.service';
-import { MessagePattern, Payload } from '@nestjs/microservices';
-import { FindUsersDto } from './dto/find-users.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  private readonly logger = new Logger(UsersController.name);
+  constructor(private readonly usersService: UsersService) { }
 
   @Post()
   @UseGuards(RolesGuard)
@@ -25,9 +25,20 @@ export class UsersController {
     return this.usersService.findById(+id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @MessagePattern('all_users')
-  async findAllUsers(@Payload() payload: FindUsersDto) {
-    return this.usersService.findAll(payload);
+  async findAllUsers(@Payload() payload: any) {
+    // Log the received payload to debug
+    this.logger.log('Received payload for all_users:', payload);
+
+    const { Authorization, ids } = payload;
+
+    if (!Authorization || !ids) {
+      throw new Error('Invalid payload: missing Authorization or ids');
+    }
+
+    // Process the ids (which should be an array) and fetch users
+    const users = await this.usersService.findAll({ ids });
+
+    return users.map((user) => user.toJson());
   }
 }

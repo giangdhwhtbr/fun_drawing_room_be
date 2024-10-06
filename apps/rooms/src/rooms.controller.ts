@@ -1,8 +1,9 @@
 import { CurrentUser, JwtAuthGuard } from '@app/common';
 import { User } from '@app/common/entities';
-import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { RoomsService } from './rooms.service';
+import { Request } from 'express';
 
 @UseGuards(JwtAuthGuard)
 @Controller('rooms')
@@ -13,7 +14,6 @@ export class RoomsController {
 
   @Post()
   create(@CurrentUser() user: User, @Body() body: CreateRoomDto) {
-    console.log(user)
     return this.roomsService.createRoom(user, body);
   }
   @Get()
@@ -30,17 +30,25 @@ export class RoomsController {
     return this.roomsService.searchRooms(keywords);
   }
 
-  @Get(':id')
-  findOneById(@Param('id') id: number) {
-    return this.roomsService.getRoom(id);
+  @Get(':uuid')
+  findOneById(@Param('uuid') uuid: string) {
+    return this.roomsService.getRoomByUUID(uuid);
   }
 
-  @Put('join/:id')
+  @Get(':uuid/users')
+  async getRoomUsers(@Req() req: Request,@Param('uuid') uuid: string) {
+    const jwt = req.headers.authorization;
+    const participants = await this.roomsService.getRoomParticipants(jwt, uuid);
+    this.logger.log('Participants:', participants);
+    return participants;
+  }
+
+  @Get('join/:id')
   joinRoom(@CurrentUser() user, @Param('id') id: number) {
     return this.roomsService.joinRoom(user, id);
   }
 
-  @Put('leave/:id')
+  @Get('leave/:id')
   leaveRoom(@CurrentUser() user, @Param('id') id: number) {
     return this.roomsService.joinRoom(user, id);
   }

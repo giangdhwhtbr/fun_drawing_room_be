@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Response } from 'express';
-import { User } from '../../../libs/common/src/entities';
 import { TokenPayload } from './interfaces/token-payload.interface';
+import { User } from '@app/common/entities';
 
 @Injectable()
 export class AuthService {
@@ -30,6 +30,7 @@ export class AuthService {
     });
 
     return {
+      user: user.toJson(),
       accessToken: token,
     };
   }
